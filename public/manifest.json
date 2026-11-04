@@ -1,0 +1,18 @@
+{
+  "name": "Komy - Mangas y Libros",
+  "short_name": "Komy",
+  "description": "Plataforma web y móvil para organizar, subir y leer mangas y libros por tomos en PDF",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0D0A26",
+  "theme_color": "#7c3aed",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/komy-logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

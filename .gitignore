@@ -1,0 +1,39 @@
+node_modules/
+.next/
+out/
+.vercel/
+.idea/
+.vscode/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.production
+.env.development
+
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+prisma/dev.db
+
+# Android builds & caches
+android/.gradle/
+android/app/build/
+android/build/
+android/.idea/
+android/local.properties
+
+# Uploads & temporary
+public/uploads/pdfs/
+public/uploads/temp/
+
+# TypeScript & build artifacts
+*.tsbuildinfo
+next-env.d.ts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

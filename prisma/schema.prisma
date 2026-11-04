@@ -1,0 +1,185 @@
+// Prisma Schema para Komy (App Web & Móvil de Mangas y Libros)
+// Incluye Autenticación con Google (Gmail), Catálogo de Admin e Historial Independiente por Cuenta
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Usuario autenticado con Google (Gmail)
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  picture   String?
+  googleId  String?  @unique
+  role      String   @default("USER") // ADMIN | USER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  works            Work[]
+  collections      Collection[]
+  workPreferences  UserWorkPreference[]
+  volumeProgresses UserVolumeProgress[]
+  bookmarks        Bookmark[]
+}
+
+// Obra principal (Serie de Manga, Libro, Novela Ligera, Cómic)
+model Work {
+  id            String   @id @default(cuid())
+  userId        String?  // Creador / Admin
+  title         String
+  subtitle      String?
+  author        String?
+  description   String?
+  type          String   @default("MANGA") // MANGA | BOOK | LIGHT_NOVEL | COMIC
+  status        String   @default("PLAN_TO_READ") // Estado base por defecto
+  readingMode   String   @default("MANGA_RTL") // MANGA_RTL | BOOK_LTR | WEBTOON_VERTICAL
+  coverUrl      String?
+  isFavorite    Boolean  @default(false)
+  rating        Float    @default(0)
+  tags          String   @default("")
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user            User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  volumes         Volume[]
+  bookmarks       Bookmark[]
+  collectionItems CollectionItem[]
+  userPreferences UserWorkPreference[]
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([sortOrder])
+}
+
+// Preferencias individuales de cada usuario sobre una Obra (Favoritos, Estado de Lectura, Calificación)
+model UserWorkPreference {
+  id         String   @id @default(cuid())
+  userId     String
+  workId     String
+  isFavorite Boolean  @default(false)
+  status     String   @default("PLAN_TO_READ") // READING | PLAN_TO_READ | COMPLETED | ON_HOLD
+  rating     Float    @default(0)
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work Work @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workId])
+  @@index([userId])
+}
+
+// Tomo / Volumen (Contiene el archivo, portada individual y orden)
+model Volume {
+  id           String    @id @default(cuid())
+  workId       String
+  volumeNumber Float     @default(1)
+  sortOrder    Int       @default(0)
+  title        String
+  synopsis     String?
+  coverUrl     String?   // Portada personalizada del tomo
+  fileUrl      String?   // Ruta o URL del archivo (o manifiesto .komyparts.json)
+  fileName     String?   // Nombre original del archivo subido
+  fileSize     Int       @default(0) // Tamaño en bytes
+  totalPages   Int       @default(1)
+  currentPage  Int       @default(1)
+  isCompleted  Boolean   @default(false)
+  lastReadAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  work           Work                 @relation(fields: [workId], references: [id], onDelete: Cascade)
+  chapters       Chapter[]
+  bookmarks      Bookmark[]
+  userProgresses UserVolumeProgress[]
+
+  @@index([workId, sortOrder])
+  @@index([workId, volumeNumber])
+}
+
+// Historial y progreso de lectura individual de cada cuenta de Gmail por Tomo
+model UserVolumeProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  volumeId    String
+  currentPage Int      @default(1)
+  isCompleted Boolean  @default(false)
+  lastReadAt  DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  volume Volume @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, volumeId])
+  @@index([userId])
+}
+
+// Capítulos o divisiones dentro de un Tomo
+model Chapter {
+  id            String   @id @default(cuid())
+  volumeId      String
+  chapterNumber Float    @default(1)
+  title         String
+  startPage     Int      @default(1)
+  fileUrl       String?
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  volume Volume @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+
+  @@index([volumeId, sortOrder])
+}
+
+// Marcadores de páginas guardadas durante la lectura (individuales por cuenta de usuario)
+model Bookmark {
+  id         String   @id @default(cuid())
+  userId     String?
+  workId     String
+  volumeId   String
+  pageNumber Int
+  label      String?
+  createdAt  DateTime @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  work   Work   @relation(fields: [workId], references: [id], onDelete: Cascade)
+  volume Volume @relation(fields: [volumeId], references: [id], onDelete: Cascade)
+
+  @@index([volumeId, pageNumber])
+  @@index([userId, volumeId])
+}
+
+// Colecciones / Estanterías personalizadas por usuario
+model Collection {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  description String?
+  color       String   @default("#8b5cf6")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  user  User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([userId])
+}
+
+model CollectionItem {
+  id           String   @id @default(cuid())
+  collectionId String
+  workId       String
+  sortOrder    Int      @default(0)
+  addedAt      DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  work       Work       @relation(fields: [workId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, workId])
+}
