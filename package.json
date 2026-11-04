@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
-    "build": "prisma generate && next build",
+    "build": "npx @cloudflare/next-on-pages",
+    "postinstall": "prisma generate",
     "start": "next start -H 0.0.0.0",
     "lint": "next lint",
     "db:push": "prisma db push",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.3",
+    "@cloudflare/next-on-pages": "^1.13.16",
     "@types/node": "^20.17.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
