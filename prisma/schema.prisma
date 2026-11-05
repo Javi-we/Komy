@@ -2,7 +2,8 @@
 // Incluye Autenticación con Google (Gmail), Catálogo de Admin e Historial Independiente por Cuenta
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
