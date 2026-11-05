@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser, isOwnerAdminEmail, OWNER_ADMIN_EMAIL } from "@/lib/auth";
