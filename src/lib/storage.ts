@@ -1,11 +1,5 @@
-import fs from "fs/promises";
-import path from "path";
 import { PDFDocument } from "pdf-lib";
 import JSZip from "jszip";
-
-const UPLOAD_BASE_DIR = path.join(process.cwd(), "public", "uploads");
-const PDF_DIR = path.join(UPLOAD_BASE_DIR, "pdfs");
-const COVER_DIR = path.join(UPLOAD_BASE_DIR, "covers");
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_KEY =
@@ -15,12 +9,7 @@ const SUPABASE_KEY =
 const SUPABASE_BUCKET = process.env.SUPABASE_BUCKET || "komy-files";
 
 export async function ensureUploadDirs() {
-  try {
-    await fs.mkdir(PDF_DIR, { recursive: true });
-    await fs.mkdir(COVER_DIR, { recursive: true });
-  } catch {
-    // En entornos serverless se ignora
-  }
+  // En entornos Cloudflare Pages / Edge el almacenamiento es 100% en la nube (Supabase Storage).
 }
 
 function sanitizeFileName(name: string): string {
@@ -45,7 +34,7 @@ function getContentTypeForFile(fileName: string, fallbackType?: string): string 
   return fallbackType || "application/octet-stream";
 }
 
-async function detectPageCount(buffer: Buffer, fileName: string): Promise<number | undefined> {
+async function detectPageCount(buffer: Uint8Array, fileName: string): Promise<number | undefined> {
   const lower = fileName.toLowerCase();
   try {
     if (lower.endsWith(".pdf")) {
@@ -74,7 +63,7 @@ async function detectPageCount(buffer: Buffer, fileName: string): Promise<number
       return Math.max(1, htmlEntries.length);
     }
     if (lower.endsWith(".txt") || lower.endsWith(".md")) {
-      const text = buffer.toString("utf-8");
+      const text = new TextDecoder().decode(buffer);
       return Math.max(1, Math.ceil(text.length / 2600));
     }
     if (/\.(jpe?g|png|webp|gif|svg)$/i.test(lower)) {
@@ -87,7 +76,7 @@ async function detectPageCount(buffer: Buffer, fileName: string): Promise<number
 }
 
 async function uploadBufferToSupabase(
-  buffer: Buffer,
+  buffer: Uint8Array,
   objectPath: string,
   contentType: string
 ): Promise<string> {
@@ -102,7 +91,7 @@ async function uploadBufferToSupabase(
       "Content-Type": contentType,
       "x-upsert": "true",
     },
-    body: new Uint8Array(buffer),
+    body: new Blob([buffer as any], { type: contentType }),
   });
 
   if (!res.ok) {
@@ -123,7 +112,7 @@ export async function saveUploadedFile(
   totalPages?: number;
 }> {
   const bytes = await file.arrayBuffer();
-  const buffer = Buffer.from(bytes);
+  const buffer = new Uint8Array(bytes);
   const timestamp = Date.now();
   const randomSuffix = Math.random().toString(36).substring(2, 7);
   const safeName = sanitizeFileName(file.name || "file");
@@ -133,31 +122,19 @@ export async function saveUploadedFile(
     folder === "pdfs" ? await detectPageCount(buffer, file.name) : undefined;
 
   if (SUPABASE_URL && SUPABASE_KEY) {
-    try {
-      const contentType = getContentTypeForFile(file.name, file.type);
-      const cloudUrl = await uploadBufferToSupabase(
-        buffer,
-        `${folder}/${finalName}`,
-        contentType
-      );
-      return {
-        url: cloudUrl,
-        fileName: file.name,
-        fileSize: buffer.length,
-        totalPages,
-      };
-    } catch (cloudErr: any) {
-      console.warn(
-        "Archivo grande o límite de Supabase Storage alcanzado, guardando localmente:",
-        cloudErr?.message
-      );
-    }
+    const contentType = getContentTypeForFile(file.name, file.type);
+    const cloudUrl = await uploadBufferToSupabase(
+      buffer,
+      `${folder}/${finalName}`,
+      contentType
+    );
+    return {
+      url: cloudUrl,
+      fileName: file.name,
+      fileSize: buffer.length,
+      totalPages,
+    };
   }
-
-  await ensureUploadDirs();
-  const targetDir = folder === "pdfs" ? PDF_DIR : COVER_DIR;
-  const filePath = path.join(targetDir, finalName);
-  await fs.writeFile(filePath, buffer);
 
   return {
     url: `/uploads/${folder}/${finalName}`,
@@ -178,37 +155,29 @@ export async function saveBase64Cover(
   const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
   const contentType = `image/${matches[1]}`;
   const base64Data = matches[2];
-  const buffer = Buffer.from(base64Data, "base64");
+
+  const binaryString = atob(base64Data);
+  const buffer = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    buffer[i] = binaryString.charCodeAt(i);
+  }
+
   const finalName = `${Date.now()}-${Math.random()
     .toString(36)
     .substring(2, 7)}-${prefix}.${ext}`;
 
   if (SUPABASE_URL && SUPABASE_KEY) {
-    try {
-      return await uploadBufferToSupabase(
-        buffer,
-        `covers/${finalName}`,
-        contentType
-      );
-    } catch {
-      // Fallback local
-    }
+    return await uploadBufferToSupabase(
+      buffer,
+      `covers/${finalName}`,
+      contentType
+    );
   }
 
-  await ensureUploadDirs();
-  const filePath = path.join(COVER_DIR, finalName);
-  await fs.writeFile(filePath, buffer);
   return `/uploads/covers/${finalName}`;
 }
 
 export async function deleteUploadedFile(url?: string | null) {
   if (!url) return;
-  if (url.startsWith("/uploads/")) {
-    try {
-      const filePath = path.join(process.cwd(), "public", url);
-      await fs.unlink(filePath);
-    } catch {
-      // Ignore
-    }
-  }
+  // En Cloudflare Pages / Supabase, el borrado se gestiona vía API de Supabase Storage.
 }
