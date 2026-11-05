@@ -131,7 +131,11 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error("GET /api/works error:", error);
     return NextResponse.json(
-      { error: "Error al obtener la biblioteca" },
+      {
+        error: "Error al obtener la biblioteca",
+        details: error?.message || String(error),
+        code: error?.code,
+      },
       { status: 500 }
     );
   }
