@@ -3,11 +3,11 @@
   "appName": "Komy",
   "webDir": "mobile-www",
   "server": {
-    "url": "https://komy-manga.vercel.app?app=true",
+    "url": "https://komy.onrender.com?app=true",
     "cleartext": true,
     "allowNavigation": [
-      "komy-manga.vercel.app",
-      "*.vercel.app",
+      "komy.onrender.com",
+      "*.onrender.com",
       "accounts.google.com",
       "*.google.com",
       "*.googleusercontent.com"
