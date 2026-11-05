@@ -1,5 +1,3 @@
-export const runtime = 'edge';
-
 import { NextRequest, NextResponse } from "next/server";
 import { saveUploadedFile, saveBase64Cover } from "@/lib/storage";
 import { verifyAdminRequest } from "@/lib/auth";
